@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, User, Mail, Phone, Building2 } from 'lucide-react';
 import { encadreurService } from '../../services/encadreurService';
+import { authService } from '../../services/authService';
 import { useApiError } from '../../hooks/useApiError';
 
 interface EncadreurFormModalProps {
@@ -46,8 +47,8 @@ export default function EncadreurFormModal({ isOpen, onClose, encadreurId }: Enc
         prenom: encadreur.prenom,
         email: encadreur.email,
         phone: encadreur.phone,
-        departement: encadreur.departement,
-        specialization: encadreur.specialization || '',
+        departement: encadreur.department,
+        specialization: '',
       });
     } catch (error: any) {
       handleApiError(error, 'Erreur lors du chargement');
@@ -61,9 +62,21 @@ export default function EncadreurFormModal({ isOpen, onClose, encadreurId }: Enc
     try {
       setLoading(true);
       if (encadreurId) {
-        await encadreurService.updateEncadreur(encadreurId, formData);
+        await encadreurService.updateEncadreur(encadreurId, {
+          nom: formData.nom,
+          prenom: formData.prenom,
+          phone: formData.phone,
+          department: formData.departement
+        });
       } else {
-        await encadreurService.createEncadreur(formData);
+        await authService.createEncadreur({
+          email: formData.email,
+          nom: formData.nom,
+          prenom: formData.prenom,
+          phone: formData.phone,
+          departement: formData.departement,
+          specialization: formData.specialization
+        });
       }
       onClose();
     } catch (error: any) {
@@ -143,13 +156,19 @@ export default function EncadreurFormModal({ isOpen, onClose, encadreurId }: Enc
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <input
                   type="email"
-                  required
+                  required={!encadreurId}
+                  readOnly={!!encadreurId}
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className={`w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${encadreurId ? 'cursor-not-allowed opacity-60' : ''}`}
                   placeholder="jean.dupont@company.com"
                 />
               </div>
+              {encadreurId && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  L'email ne peut pas être modifié
+                </p>
+              )}
             </div>
 
             <div>

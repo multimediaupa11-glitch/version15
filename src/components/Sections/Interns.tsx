@@ -1,34 +1,80 @@
-import React from 'react';
-import { useState } from 'react';
-import { Users, Plus, Search, Filter, MoreVertical } from 'lucide-react';
-import { mockInterns } from '../../data/mockData';
+import React, { useState, useEffect } from 'react';
+import { Users, Plus, Search, MoreVertical } from 'lucide-react';
 import InternDetailModal from '../Modals/InternDetailModal';
 import InternFormModal from '../Modals/InternFormModal';
+import { internService, InternDTO } from '../../services/internService';
+import { useApiError } from '../../hooks/useApiError';
 
 export default function Interns() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedIntern, setSelectedIntern] = useState(null);
+  const [selectedIntern, setSelectedIntern] = useState<InternDTO | null>(null);
   const [showInternDetail, setShowInternDetail] = useState(false);
   const [showInternForm, setShowInternForm] = useState(false);
   const [filterDepartment, setFilterDepartment] = useState('');
+  const [interns, setInterns] = useState<InternDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const handleApiError = useApiError();
 
-  const filteredInterns = mockInterns.filter(intern => {
-    const matchesSearch = intern.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         intern.email.toLowerCase().includes(searchTerm.toLowerCase());
+  useEffect(() => {
+    loadInterns();
+  }, []);
+
+  const loadInterns = async () => {
+    try {
+      setLoading(true);
+      const data = await internService.getAllInterns();
+      setInterns(data);
+    } catch (error: any) {
+      handleApiError(error, 'Erreur lors du chargement des stagiaires');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredInterns = interns.filter(intern => {
+    const matchesSearch =
+      `${intern.prenom} ${intern.nom}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      intern.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDepartment = !filterDepartment || intern.department === filterDepartment;
     return matchesSearch && matchesDepartment;
   });
 
-  const departments = [...new Set(mockInterns.map(intern => intern.department))];
+  const departments = [...new Set(interns.map(intern => intern.department))];
 
   const handleViewIntern = (intern: any) => {
     setSelectedIntern(intern);
     setShowInternDetail(true);
   };
 
-  const handleAddIntern = (internData: any) => {
-    console.log('New intern added:', internData);
+  const handleAddIntern = async (internData: any) => {
+    await loadInterns();
     setShowInternForm(false);
+  };
+
+  const getProgressPercentage = (startDate: string, endDate: string): number => {
+    const start = new Date(startDate).getTime();
+    const end = new Date(endDate).getTime();
+    const now = new Date().getTime();
+
+    if (now < start) return 0;
+    if (now > end) return 100;
+
+    return Math.round(((now - start) / (end - start)) * 100);
+  };
+
+  const getStatusBadgeClass = (status: string): string => {
+    switch (status.toUpperCase()) {
+      case 'ACTIVE':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'PENDING':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'COMPLETED':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'CANCELLED':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    }
   };
 
   return (
@@ -76,69 +122,79 @@ export default function Interns() {
       </div>
 
       {/* Interns Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredInterns.map((intern) => (
-          <div key={intern.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 hover:shadow-md transition-shadow duration-200">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <img
-                  src={intern.avatar}
-                  alt={intern.name}
-                  className="h-12 w-12 rounded-full object-cover"
-                />
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">{intern.name}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">{intern.department}</p>
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : filteredInterns.length === 0 ? (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+          <Users className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Aucun stagiaire trouvé</h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {searchTerm ? 'Essayez de modifier votre recherche.' : 'Commencez par ajouter un nouveau stagiaire.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredInterns.map((intern) => {
+            const progress = getProgressPercentage(intern.startDate, intern.endDate);
+            return (
+              <div key={intern.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 hover:shadow-md transition-shadow duration-200">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-orange-400 to-red-400 flex items-center justify-center text-white font-semibold">
+                      {intern.prenom[0]}{intern.nom[0]}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">{intern.prenom} {intern.nom}</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">{intern.department}</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <button 
-                onClick={() => alert(`Options for ${intern.name}`)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </button>
-            </div>
-            
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600 dark:text-gray-300">Progress</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{intern.progress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className="bg-orange-600 dark:bg-orange-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${intern.progress}%` }}
-                  />
-                </div>
-              </div>
 
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-300">Start Date</span>
-                <span className="font-medium text-gray-900 dark:text-white">{new Date(intern.startDate).toLocaleDateString()}</span>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-600 dark:text-gray-300">Progression</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{progress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-orange-600 dark:bg-orange-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-300">École</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{intern.school}</span>
+                  </div>
+
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-300">Date de début</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{new Date(intern.startDate).toLocaleDateString()}</span>
+                  </div>
+
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-300">Statut</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(intern.status)}`}>
+                      {intern.status}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleViewIntern(intern)}
+                  className="w-full mt-4 text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors"
+                >
+                  Voir détails →
+                </button>
               </div>
-              
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Status</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  intern.status === 'active' 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {intern.status}
-                </span>
-              </div>
-            </div>
-            
-            <button 
-              onClick={() => handleViewIntern(intern)}
-              className="w-full mt-4 text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors"
-            >
-              View Details →
-            </button>
-          </div>
-        ))}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Intern Detail Modal */}
       <InternDetailModal

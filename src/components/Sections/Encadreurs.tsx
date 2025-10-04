@@ -20,7 +20,19 @@ export default function Encadreurs() {
     try {
       setLoading(true);
       const data = await encadreurService.getAllEncadreurs();
-      setEncadreurs(data);
+
+      const encadreursWithCount = await Promise.all(
+        data.map(async (enc) => {
+          try {
+            const count = await encadreurService.getEncadreurInternCount(enc.id);
+            return { ...enc, stagiaireCount: count };
+          } catch {
+            return { ...enc, stagiaireCount: 0 };
+          }
+        })
+      );
+
+      setEncadreurs(encadreursWithCount);
     } catch (error: any) {
       handleApiError(error, 'Erreur lors du chargement des encadreurs');
     } finally {
@@ -32,7 +44,7 @@ export default function Encadreurs() {
     encadreur.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
     encadreur.prenom.toLowerCase().includes(searchQuery.toLowerCase()) ||
     encadreur.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    encadreur.departement.toLowerCase().includes(searchQuery.toLowerCase())
+    encadreur.department.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleAddEncadreur = () => {
@@ -154,7 +166,7 @@ export default function Encadreurs() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
-                        {encadreur.departement}
+                        {encadreur.department}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
