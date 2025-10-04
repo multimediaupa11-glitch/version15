@@ -2,6 +2,7 @@ import { useState } from "react";
 import { UserPlus, Building2, ArrowLeft, Mail, Lock } from "lucide-react";
 import { authService } from "../services/authService";
 import { useApiError } from "../hooks/useApiError";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Register() {
   const [step, setStep] = useState<"email" | "details">("email");
@@ -14,6 +15,7 @@ export default function Register() {
   const { error, isLoading, handleApiCall, clearError, setError } = useApiError();
   const [success, setSuccess] = useState(false);
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
+  const { signIn } = useAuth();
 
   // ✅ Étape 1 : vérifier l’email
   const handleCheckEmail = async (e: React.FormEvent) => {
@@ -67,11 +69,16 @@ export default function Register() {
           email,
           password: formData.password,
         }),
-      () => {
+      async () => {
         setSuccess(true);
-        setTimeout(() => {
-          window.location.href = "/";
-        }, 2000);
+        try {
+          await signIn(email, formData.password);
+        } catch (err) {
+          console.error('Erreur de connexion automatique:', err);
+          setTimeout(() => {
+            window.location.href = "/";
+          }, 2000);
+        }
       }
     );
   };
@@ -102,7 +109,7 @@ export default function Register() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Compte créé avec succès
           </h2>
-          <p className="text-gray-600 dark:text-gray-400">Redirection vers la page de connexion...</p>
+          <p className="text-gray-600 dark:text-gray-400">Redirection vers le tableau de bord...</p>
         </div>
       </div>
     );

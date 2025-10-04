@@ -1,17 +1,32 @@
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { Bell, Search, ChevronDown, CheckCircle, AlertTriangle, Info, LogOut, User } from 'lucide-react';
-import { mockNotifications } from '../../data/mockData';
 import SearchModal from '../Modals/SearchModal';
 import { useAuth } from '../../contexts/AuthContext';
+import { notificationService } from '../../services/notificationService';
 
 export default function Header() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const unreadCount = mockNotifications.filter(n => !n.read).length;
+  const [notifications, setNotifications] = useState<any[]>([]);
   const notificationRef = useRef<HTMLDivElement>(null);
   const { authUser, signOut } = useAuth();
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const loadNotifications = async () => {
+    try {
+      const data = await notificationService.getNotifications();
+      setNotifications(data);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -113,7 +128,7 @@ export default function Header() {
                 </div>
 
                 <div className="h-[calc(100vh-8rem)] md:max-h-80 overflow-y-auto">
-                  {mockNotifications.map((notification) => (
+                  {notifications.map((notification) => (
                     <div key={notification.id} className={`p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${!notification.read ? 'bg-orange-50 dark:bg-orange-900/20' : ''}`}>
                       <div className="flex items-start space-x-3">
                         <div className={`p-2 rounded-full ${

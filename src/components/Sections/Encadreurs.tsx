@@ -1,20 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Plus, Mail, Phone, Users, CreditCard as Edit, Trash2 } from 'lucide-react';
-import { mockUsers } from '../../data/mockData';
 import EncadreurFormModal from '../Modals/EncadreurFormModal';
+import { encadreurService } from '../../services/encadreurService';
+import { useApiError } from '../../hooks/useApiError';
 
 export default function Encadreurs() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
-  const [selectedEncadreur, setSelectedEncadreur] = useState<string | null>(null);
+  const [selectedEncadreur, setSelectedEncadreur] = useState<number | null>(null);
+  const [encadreurs, setEncadreurs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const handleApiError = useApiError();
 
-  const encadreurs = mockUsers.filter(user => user.role === 'encadreur');
+  useEffect(() => {
+    loadEncadreurs();
+  }, []);
+
+  const loadEncadreurs = async () => {
+    try {
+      setLoading(true);
+      const data = await encadreurService.getAllEncadreurs();
+      setEncadreurs(data);
+    } catch (error: any) {
+      handleApiError(error, 'Erreur lors du chargement des encadreurs');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredEncadreurs = encadreurs.filter(encadreur =>
-    encadreur.profile.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    encadreur.profile.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    encadreur.profile.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    encadreur.profile.departement.toLowerCase().includes(searchQuery.toLowerCase())
+    encadreur.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    encadreur.prenom.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    encadreur.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    encadreur.departement.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleAddEncadreur = () => {
@@ -22,14 +40,26 @@ export default function Encadreurs() {
     setShowFormModal(true);
   };
 
-  const handleEditEncadreur = (id: string) => {
+  const handleEditEncadreur = (id: number) => {
     setSelectedEncadreur(id);
     setShowFormModal(true);
   };
 
-  const getStagiairesCount = (encadreurId: string) => {
-    const encadreur = mockUsers.find(u => u.id === encadreurId);
-    return encadreur?.stagiaires?.length || 0;
+  const handleDeleteEncadreur = async (id: number, nom: string, prenom: string) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer ${prenom} ${nom}?`)) return;
+
+    try {
+      await encadreurService.deleteEncadreur(id);
+      await loadEncadreurs();
+    } catch (error: any) {
+      handleApiError(error, 'Erreur lors de la suppression');
+    }
+  };
+
+  const handleModalClose = () => {
+    setShowFormModal(false);
+    setSelectedEncadreur(null);
+    loadEncadreurs();
   };
 
   return (
@@ -67,6 +97,11 @@ export default function Encadreurs() {
           </div>
 
           <div className="overflow-x-auto">
+            {loading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : (
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
@@ -93,14 +128,14 @@ export default function Encadreurs() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-400 to-red-400 flex items-center justify-center text-white font-semibold">
-                          {encadreur.profile.firstName[0]}{encadreur.profile.lastName[0]}
+                          {encadreur.prenom[0]}{encadreur.nom[0]}
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {encadreur.profile.firstName} {encadreur.profile.lastName}
+                            {encadreur.prenom} {encadreur.nom}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
-                            ID: {encadreur.id}
+                            {encadreur.specialization || 'Non spécifié'}
                           </div>
                         </div>
                       </div>
@@ -109,26 +144,26 @@ export default function Encadreurs() {
                       <div className="space-y-1">
                         <div className="flex items-center text-sm text-gray-900 dark:text-white">
                           <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                          {encadreur.profile.email}
+                          {encadreur.email}
                         </div>
                         <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                           <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                          {encadreur.profile.phone}
+                          {encadreur.phone}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
-                        {encadreur.profile.departement}
+                        {encadreur.departement}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center text-sm text-gray-900 dark:text-white">
                         <Users className="h-4 w-4 mr-2 text-gray-400" />
-                        {getStagiairesCount(encadreur.id) === 0 ? (
+                        {encadreur.stagiaireCount === 0 ? (
                           <span className="text-gray-400 dark:text-gray-500 italic">Aucun stagiaire</span>
                         ) : (
-                          <span>{getStagiairesCount(encadreur.id)} stagiaire{getStagiairesCount(encadreur.id) > 1 ? 's' : ''}</span>
+                          <span>{encadreur.stagiaireCount} stagiaire{encadreur.stagiaireCount > 1 ? 's' : ''}</span>
                         )}
                       </div>
                     </td>
@@ -140,11 +175,7 @@ export default function Encadreurs() {
                         <Edit className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => {
-                          if (confirm(`Êtes-vous sûr de vouloir supprimer ${encadreur.profile.prenom} ${encadreur.profile.nom}?`)) {
-                            console.log('Supprimer encadreur:', encadreur.id);
-                          }
-                        }}
+                        onClick={() => handleDeleteEncadreur(encadreur.id, encadreur.nom, encadreur.prenom)}
                         className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -154,8 +185,9 @@ export default function Encadreurs() {
                 ))}
               </tbody>
             </table>
+            )}
 
-            {filteredEncadreurs.length === 0 && (
+            {!loading && filteredEncadreurs.length === 0 && (
               <div className="text-center py-12">
                 <Users className="mx-auto h-12 w-12 text-gray-400" />
                 <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Aucun encadreur trouvé</h3>
@@ -170,7 +202,7 @@ export default function Encadreurs() {
 
       <EncadreurFormModal
         isOpen={showFormModal}
-        onClose={() => setShowFormModal(false)}
+        onClose={handleModalClose}
         encadreurId={selectedEncadreur}
       />
     </>

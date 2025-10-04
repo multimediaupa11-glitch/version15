@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, User, Mail, Phone, Building2 } from 'lucide-react';
-import { mockUsers } from '../../data/mockData';
+import { encadreurService } from '../../services/encadreurService';
+import { useApiError } from '../../hooks/useApiError';
 
 interface EncadreurFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  encadreurId: string | null;
+  encadreurId: number | null;
 }
 
 export default function EncadreurFormModal({ isOpen, onClose, encadreurId }: EncadreurFormModalProps) {
@@ -15,38 +16,61 @@ export default function EncadreurFormModal({ isOpen, onClose, encadreurId }: Enc
     email: '',
     phone: '',
     departement: '',
-    password: '',
+    specialization: '',
   });
+  const [loading, setLoading] = useState(false);
+  const handleApiError = useApiError();
 
   useEffect(() => {
-    if (encadreurId) {
-      const encadreur = mockUsers.find(u => u.id === encadreurId);
-      if (encadreur) {
-        setFormData({
-          nom: encadreur.profile.nom,
-          prenom: encadreur.profile.prenom,
-          email: encadreur.profile.email,
-          phone: encadreur.profile.phone,
-          departement: encadreur.profile.departement,
-          password: '',
-        });
-      }
-    } else {
+    if (isOpen && encadreurId) {
+      loadEncadreur();
+    } else if (isOpen) {
       setFormData({
         nom: '',
         prenom: '',
         email: '',
         phone: '',
         departement: '',
-        password: '',
+        specialization: '',
       });
     }
   }, [encadreurId, isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const loadEncadreur = async () => {
+    if (!encadreurId) return;
+    try {
+      setLoading(true);
+      const encadreur = await encadreurService.getEncadreurById(encadreurId);
+      setFormData({
+        nom: encadreur.nom,
+        prenom: encadreur.prenom,
+        email: encadreur.email,
+        phone: encadreur.phone,
+        departement: encadreur.departement,
+        specialization: encadreur.specialization || '',
+      });
+    } catch (error: any) {
+      handleApiError(error, 'Erreur lors du chargement');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Encadreur data:', formData);
-    onClose();
+    try {
+      setLoading(true);
+      if (encadreurId) {
+        await encadreurService.updateEncadreur(encadreurId, formData);
+      } else {
+        await encadreurService.createEncadreur(formData);
+      }
+      onClose();
+    } catch (error: any) {
+      handleApiError(error, encadreurId ? 'Erreur lors de la mise à jour' : 'Erreur lors de la création');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -168,25 +192,18 @@ export default function EncadreurFormModal({ isOpen, onClose, encadreurId }: Enc
               </div>
             </div>
 
-            {!encadreurId && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Mot de passe *
-                </label>
-                <input
-                  type="password"
-                  required={!encadreurId}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="••••••••"
-                  minLength={8}
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Minimum 8 caractères
-                </p>
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Spécialisation
+              </label>
+              <input
+                type="text"
+                value={formData.specialization}
+                onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder="Ex: Développement Web, Data Science..."
+              />
+            </div>
 
             <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
               <p className="text-sm text-orange-800 dark:text-orange-200">
@@ -205,10 +222,11 @@ export default function EncadreurFormModal({ isOpen, onClose, encadreurId }: Enc
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 transition-all duration-200 flex items-center space-x-2"
+              disabled={loading}
+              className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 transition-all duration-200 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="h-4 w-4" />
-              <span>{encadreurId ? 'Mettre à jour' : 'Ajouter'}</span>
+              <span>{loading ? 'Enregistrement...' : (encadreurId ? 'Mettre à jour' : 'Ajouter')}</span>
             </button>
           </div>
         </form>
