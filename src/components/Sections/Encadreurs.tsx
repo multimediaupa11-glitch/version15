@@ -6,6 +6,7 @@ import { useApiError } from '../../hooks/useApiError';
 
 export default function Encadreurs() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterDepartment, setFilterDepartment] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
   const [selectedEncadreur, setSelectedEncadreur] = useState<number | null>(null);
   const [encadreurs, setEncadreurs] = useState<any[]>([]);
@@ -40,12 +41,17 @@ export default function Encadreurs() {
     }
   };
 
-  const filteredEncadreurs = encadreurs.filter(encadreur =>
-    encadreur.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    encadreur.prenom.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    encadreur.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    encadreur.department.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredEncadreurs = encadreurs.filter(encadreur => {
+    const matchesSearch =
+      encadreur.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      encadreur.prenom.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      encadreur.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      encadreur.department.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesDepartment = !filterDepartment || encadreur.department === filterDepartment;
+    return matchesSearch && matchesDepartment;
+  });
+
+  const departments = [...new Set(encadreurs.map(enc => enc.department))];
 
   const handleAddEncadreur = () => {
     setSelectedEncadreur(null);
@@ -96,15 +102,27 @@ export default function Encadreurs() {
 
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="text"
-                placeholder="Rechercher un encadreur..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <input
+                  type="text"
+                  placeholder="Rechercher un encadreur..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <select
+                value={filterDepartment}
+                onChange={(e) => setFilterDepartment(e.target.value)}
+                className="w-full sm:w-auto px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              >
+                <option value="">Tous les départements</option>
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
             </div>
           </div>
 
