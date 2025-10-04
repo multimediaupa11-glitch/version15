@@ -55,14 +55,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response: AuthResponse = await authService.login({ email, password });
 
-      if (!response.success || !response.data?.user) {
-        // Gérer les messages d'erreur de l'API
-        const apiError = response.error || 'Email ou mot de passe incorrect';
-        throw new Error(apiError);
+      if (!response.user || !response.token) {
+        throw new Error('Email ou mot de passe incorrect');
       }
 
-      const user = response.data.user;
-      const token = response.data.token;
+      const user = response.user;
+      const token = response.token;
 
       const userAuth = {
         id: user.id.toString(),
